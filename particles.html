@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Particle Field</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #020818; overflow: hidden; cursor: none; }
+  canvas { display: block; }
+  #ui {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.4); font: 13px/1.6 monospace;
+    text-align: center; pointer-events: none; letter-spacing: 0.1em;
+  }
+  #cursor {
+    position: fixed; width: 12px; height: 12px; border-radius: 50%;
+    background: white; mix-blend-mode: difference;
+    transform: translate(-50%, -50%); pointer-events: none;
+    transition: transform 0.1s ease;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">move mouse · click to explode · scroll to change gravity</div>
+<div id="cursor"></div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const cursor = document.getElementById('cursor');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const PARTICLE_COUNT = 600;
+const GRAVITY = 0.6;
+const DAMPING = 0.97;
+const MAX_SPEED = 12;
+
+let mouse = { x: W / 2, y: H / 2, down: false };
+let gravityStrength = GRAVITY;
+
+class Particle {
+  constructor() { this.reset(true); }
+
+  reset(initial = false) {
+    this.x = initial ? Math.random() * W : W / 2 + (Math.random() - 0.5) * 200;
+    this.y = initial ? Math.random() * H : H / 2 + (Math.random() - 0.5) * 200;
+    this.vx = (Math.random() - 0.5) * 4;
+    this.vy = (Math.random() - 0.5) * 4;
+    this.radius = Math.random() * 1.8 + 0.4;
+    this.hue = Math.random() * 360;
+    this.life = 1;
+  }
+
+  update() {
+    const dx = mouse.x - this.x;
+    const dy = mouse.y - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+    // Gravity pull toward mouse
+    const force = (gravityStrength * 1200) / (dist * dist + 80);
+    this.vx += (dx / dist) * force;
+    this.vy += (dy / dist) * force;
+
+    // Repulse when very close
+    if (dist < 60) {
+      const repel = (60 - dist) / 60 * 3;
+      this.vx -= (dx / dist) * repel;
+      this.vy -= (dy / dist) * repel;
+    }
+
+    // Speed cap
+    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    if (speed > MAX_SPEED) {
+      this.vx = (this.vx / speed) * MAX_SPEED;
+      this.vy = (this.vy / speed) * MAX_SPEED;
+    }
+
+    this.vx *= DAMPING;
+    this.vy *= DAMPING;
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Hue shifts with velocity
+    this.hue = (this.hue + speed * 0.5) % 360;
+
+    // Wrap edges
+    if (this.x < -20) this.x = W + 20;
+    if (this.x > W + 20) this.x = -20;
+    if (this.y < -20) this.y = H + 20;
+    if (this.y > H + 20) this.y = -20;
+  }
+
+  draw() {
+    const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+    const brightness = 50 + speed * 3;
+    const alpha = 0.6 + Math.min(speed * 0.04, 0.4);
+    const r = this.radius + speed * 0.15;
+
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${this.hue},90%,${brightness}%,${alpha})`;
+    ctx.fill();
+  }
+}
+
+const particles = Array.from({ length: PARTICLE_COUNT }, () => new Particle());
+
+// Ripple rings on click
+let ripples = [];
+function addRipple(x, y) {
+  ripples.push({ x, y, r: 0, maxR: 160, alpha: 1 });
+}
+
+function explode() {
+  particles.forEach(p => {
+    const dx = p.x - mouse.x;
+    const dy = p.y - mouse.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const power = Math.max(0, (200 - dist) / 200) * 18;
+    p.vx += (dx / dist) * power;
+    p.vy += (dy / dist) * power;
+  });
+  addRipple(mouse.x, mouse.y);
+}
+
+window.addEventListener('mousemove', e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top  = e.clientY + 'px';
+});
+
+window.addEventListener('click', explode);
+
+window.addEventListener('wheel', e => {
+  gravityStrength = Math.max(0.05, Math.min(3, gravityStrength - e.deltaY * 0.001));
+}, { passive: true });
+
+let lastTime = 0;
+function draw(ts) {
+  const dt = Math.min((ts - lastTime) / 16.67, 3);
+  lastTime = ts;
+
+  // Fade trail
+  ctx.fillStyle = 'rgba(2,8,24,0.18)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Ripples
+  ripples = ripples.filter(rp => rp.alpha > 0.01);
+  ripples.forEach(rp => {
+    rp.r += 4;
+    rp.alpha *= 0.93;
+    ctx.beginPath();
+    ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,255,255,${rp.alpha})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // Mouse glow
+  const grd = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 80);
+  grd.addColorStop(0, 'rgba(255,255,255,0.08)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(mouse.x - 80, mouse.y - 80, 160, 160);
+
+  particles.forEach(p => { p.update(); p.draw(); });
+
+  requestAnimationFrame(draw);
+}
+
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
