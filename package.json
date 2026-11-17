@@ -1,0 +1,25 @@
+{
+  "name": "particle-field",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive particle simulation rendered on an HTML5 canvas",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "npm run lint:js && npm run lint:html",
+    "lint:js": "eslint .",
+    "lint:js:fix": "eslint . --fix",
+    "lint:html": "htmlhint \"**/*.html\"",
+    "quality": "npm run format:check && npm run lint",
+    "quality:fix": "npm run format && npm run lint:js:fix && npm run lint:html"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "eslint-plugin-html": "^8.2.1",
+    "globals": "^17.14.0",
+    "htmlhint": "^1.9.2",
+    "prettier": "^3.10.1"
+  },
+  "type": "module"
+}
