@@ -3,7 +3,7 @@ import globals from 'globals';
 import html from 'eslint-plugin-html';
 
 export default [
-  { ignores: ['node_modules/**'] },
+  { ignores: ['node_modules/**', '.trees/**', '.playwright-mcp/**'] },
   js.configs.recommended,
   {
     files: ['**/*.html'],

@@ -17,7 +17,7 @@ function createStubContext() {
   const noop = () => {};
   const ctx2d = new Proxy(
     { createRadialGradient: () => ({ addColorStop: noop }) },
-    { get: (t, k) => (k in t ? t[k] : noop), set: () => true }
+    { get: (t, k) => (k in t ? t[k] : noop), set: () => true },
   );
   const canvas = { width: 0, height: 0, getContext: () => ctx2d };
   const cursor = { style: {} };
@@ -31,15 +31,39 @@ function createStubContext() {
       (listeners[type] ||= []).push(fn);
     },
   };
+  const toggleListeners = {};
+  const themeToggle = {
+    attrs: {},
+    title: '',
+    setAttribute(name, value) {
+      this.attrs[name] = String(value);
+    },
+    addEventListener: (type, fn) => {
+      (toggleListeners[type] ||= []).push(fn);
+    },
+  };
+  const storage = {};
+  const localStorage = {
+    getItem: (key) => (key in storage ? storage[key] : null),
+    setItem: (key, value) => {
+      storage[key] = String(value);
+    },
+  };
+  const bodyClasses = new Set();
   const document = {
-    getElementById: id => ({ c: canvas, cursor }[id]),
+    getElementById: (id) => ({ c: canvas, cursor, 'theme-toggle': themeToggle })[id],
+    documentElement: { dataset: {} },
+    body: {
+      classList: { add: (c) => bodyClasses.add(c), remove: (c) => bodyClasses.delete(c) },
+    },
   };
 
   const context = vm.createContext({
     window,
     document,
+    localStorage,
     Math,
-    requestAnimationFrame: cb => rafCallbacks.push(cb),
+    requestAnimationFrame: (cb) => rafCallbacks.push(cb),
   });
   vm.runInContext(SCRIPT, context);
 
@@ -50,8 +74,21 @@ function createStubContext() {
     window,
     rafCallbacks,
     // Evaluate an expression against the script's top-level scope.
-    run: code => vm.runInContext(code, context),
-    fire: (type, event = {}) => (listeners[type] || []).forEach(fn => fn(event)),
+    run: (code) => vm.runInContext(code, context),
+    fire: (type, event = {}) => (listeners[type] || []).forEach((fn) => fn(event)),
+    document,
+    themeToggle,
+    storage,
+    clickToggle: () => {
+      const event = {
+        stopped: false,
+        stopPropagation() {
+          this.stopped = true;
+        },
+      };
+      (toggleListeners.click || []).forEach((fn) => fn(event));
+      return event;
+    },
   };
 }
 
@@ -146,7 +183,7 @@ test('click explodes nearby particles outward and adds a ripple', () => {
   assert.equal(env.run('ripples.length'), 1);
   assert.deepEqual(
     { ...env.run('({ x: ripples[0].x, y: ripples[0].y, r: ripples[0].r })') },
-    { x: 400, y: 300, r: 0 }
+    { x: 400, y: 300, r: 0 },
   );
 });
 
@@ -179,7 +216,26 @@ test('animation loop runs frames and fades out ripples', () => {
   assert.equal(env.run('ripples.length'), 0);
 
   const allFinite = env.run(
-    'particles.every(p => [p.x, p.y, p.vx, p.vy, p.hue].every(Number.isFinite))'
+    'particles.every(p => [p.x, p.y, p.vx, p.vy, p.hue].every(Number.isFinite))',
   );
   assert.ok(allFinite, 'particle state stays finite after many frames');
+});
+
+test('theme toggle switches between dark and light and remembers the choice', () => {
+  const env = createStubContext();
+  assert.equal(env.run('theme'), 'dark');
+  assert.equal(env.document.documentElement.dataset.theme, 'dark');
+  assert.equal(env.themeToggle.attrs['aria-pressed'], 'false');
+
+  const event = env.clickToggle();
+  assert.ok(event.stopped, 'toggle click should not reach the canvas explosion handler');
+  assert.equal(env.run('theme'), 'light');
+  assert.equal(env.document.documentElement.dataset.theme, 'light');
+  assert.equal(env.themeToggle.attrs['aria-pressed'], 'true');
+  assert.equal(env.themeToggle.attrs['aria-label'], 'Switch to dark theme');
+  assert.equal(env.storage.theme, 'light');
+
+  env.clickToggle();
+  assert.equal(env.run('theme'), 'dark');
+  assert.equal(env.storage.theme, 'dark');
 });

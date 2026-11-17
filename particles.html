@@ -10,10 +10,27 @@
         padding: 0;
         box-sizing: border-box;
       }
+      :root {
+        --bg: #020818;
+        --toggle-bg: rgba(255, 255, 255, 0.06);
+        --toggle-bg-hover: rgba(255, 255, 255, 0.12);
+        --toggle-border: rgba(255, 255, 255, 0.18);
+        --toggle-fg: #e8ecff;
+        --focus-ring: #7aa2ff;
+      }
+      :root[data-theme='light'] {
+        --bg: #f3f5fb;
+        --toggle-bg: rgba(2, 8, 24, 0.05);
+        --toggle-bg-hover: rgba(2, 8, 24, 0.1);
+        --toggle-border: rgba(2, 8, 24, 0.18);
+        --toggle-fg: #1a2340;
+        --focus-ring: #2f5bd8;
+      }
       body {
-        background: #020818;
+        background: var(--bg);
         overflow: hidden;
         cursor: none;
+        transition: background-color 0.4s ease;
       }
       canvas {
         display: block;
@@ -40,16 +57,176 @@
         pointer-events: none;
         transition: transform 0.1s ease;
       }
+
+      /* Theme toggle */
+      #theme-toggle {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 10;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        border: 1px solid var(--toggle-border);
+        background: var(--toggle-bg);
+        color: var(--toggle-fg);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        cursor: pointer;
+        transition:
+          background-color 0.3s ease,
+          border-color 0.3s ease,
+          color 0.3s ease,
+          transform 0.2s ease;
+      }
+      #theme-toggle:hover {
+        background: var(--toggle-bg-hover);
+        transform: scale(1.06);
+      }
+      #theme-toggle:active {
+        transform: scale(0.94);
+      }
+      #theme-toggle:focus {
+        outline: none;
+      }
+      #theme-toggle:focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: 3px;
+      }
+      #theme-toggle svg {
+        grid-area: 1 / 1;
+        width: 20px;
+        height: 20px;
+        transition:
+          transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+          opacity 0.35s ease;
+      }
+      /* Dark theme: show moon; light theme: show sun */
+      #theme-toggle .icon-sun {
+        opacity: 0;
+        transform: rotate(-90deg) scale(0.4);
+      }
+      #theme-toggle .icon-moon {
+        opacity: 1;
+        transform: rotate(0) scale(1);
+      }
+      :root[data-theme='light'] #theme-toggle .icon-sun {
+        opacity: 1;
+        transform: rotate(0) scale(1);
+      }
+      :root[data-theme='light'] #theme-toggle .icon-moon {
+        opacity: 0;
+        transform: rotate(90deg) scale(0.4);
+      }
+      /* Show the real pointer over the button (custom cursor hidden there) */
+      body.over-toggle #cursor {
+        opacity: 0;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        body,
+        #theme-toggle,
+        #theme-toggle svg {
+          transition: none;
+        }
+      }
     </style>
   </head>
   <body>
     <canvas id="c"></canvas>
     <div id="ui">move mouse · click to explode · scroll to change gravity</div>
     <div id="cursor"></div>
+    <button
+      id="theme-toggle"
+      type="button"
+      aria-label="Switch to light theme"
+      aria-pressed="false"
+      title="Switch to light theme"
+    >
+      <svg
+        class="icon-moon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+      <svg
+        class="icon-sun"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path
+          d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+        />
+      </svg>
+    </button>
     <script>
       const canvas = document.getElementById('c');
       const ctx = canvas.getContext('2d');
       const cursor = document.getElementById('cursor');
+      const themeToggle = document.getElementById('theme-toggle');
+
+      // ---- Theme ----
+      const THEMES = {
+        dark: {
+          trail: 'rgba(2,8,24,0.18)',
+          glow: 'rgba(255,255,255,0.08)',
+          ripple: '255,255,255',
+          light: [50, 3],
+        },
+        light: {
+          trail: 'rgba(243,245,251,0.18)',
+          glow: 'rgba(2,8,24,0.06)',
+          ripple: '2,8,24',
+          light: [42, 1.5],
+        },
+      };
+      let theme = 'dark';
+      try {
+        if (localStorage.getItem('theme') === 'light') theme = 'light';
+      } catch {
+        // storage unavailable (e.g. private mode); keep the default
+      }
+
+      function applyTheme(name) {
+        theme = name;
+        document.documentElement.dataset.theme = name;
+        const next = name === 'dark' ? 'light' : 'dark';
+        themeToggle.setAttribute('aria-label', `Switch to ${next} theme`);
+        themeToggle.title = `Switch to ${next} theme`;
+        themeToggle.setAttribute('aria-pressed', String(name === 'light'));
+        try {
+          localStorage.setItem('theme', name);
+        } catch {
+          // storage unavailable; the theme still applies for this session
+        }
+      }
+      applyTheme(theme);
+
+      themeToggle.addEventListener('click', (e) => {
+        e.stopPropagation(); // don't trigger the canvas explosion
+        applyTheme(theme === 'dark' ? 'light' : 'dark');
+      });
+      themeToggle.addEventListener('mouseenter', () => document.body.classList.add('over-toggle'));
+      themeToggle.addEventListener('mouseleave', () =>
+        document.body.classList.remove('over-toggle'),
+      );
 
       let W, H;
       function resize() {
@@ -123,7 +300,8 @@
 
         draw() {
           const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-          const brightness = 50 + speed * 3;
+          const [baseL, speedL] = THEMES[theme].light;
+          const brightness = Math.min(baseL + speed * speedL, 90);
           const alpha = 0.6 + Math.min(speed * 0.04, 0.4);
           const r = this.radius + speed * 0.15;
 
@@ -173,7 +351,8 @@
 
       function draw() {
         // Fade trail
-        ctx.fillStyle = 'rgba(2,8,24,0.18)';
+        const t = THEMES[theme];
+        ctx.fillStyle = t.trail;
         ctx.fillRect(0, 0, W, H);
 
         // Ripples
@@ -183,14 +362,14 @@
           rp.alpha *= 0.93;
           ctx.beginPath();
           ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(255,255,255,${rp.alpha})`;
+          ctx.strokeStyle = `rgba(${t.ripple},${rp.alpha})`;
           ctx.lineWidth = 1.5;
           ctx.stroke();
         });
 
         // Mouse glow
         const grd = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 80);
-        grd.addColorStop(0, 'rgba(255,255,255,0.08)');
+        grd.addColorStop(0, t.glow);
         grd.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = grd;
         ctx.fillRect(mouse.x - 80, mouse.y - 80, 160, 160);
