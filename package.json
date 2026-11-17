@@ -4,6 +4,7 @@
   "private": true,
   "description": "Interactive particle simulation rendered on an HTML5 canvas",
   "scripts": {
+    "test": "node --test tests/*.test.cjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "npm run lint:js && npm run lint:html",

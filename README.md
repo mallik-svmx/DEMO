@@ -35,3 +35,13 @@ Code quality tooling requires Node.js 18+. Install once with `npm install`, then
 | `npm run format:check` | Verify formatting without writing changes                 |
 | `npm run lint:js`      | Lint inline `<script>` code with ESLint                   |
 | `npm run lint:html`    | Validate HTML structure with HTMLHint                     |
+
+## Testing
+
+Tests use Node's built-in test runner (Node 18+) and need no extra dependencies:
+
+```sh
+npm test
+```
+
+They load the script from `particles.html` into a sandbox with a stubbed DOM and canvas, then check the simulation logic and the input handlers.
