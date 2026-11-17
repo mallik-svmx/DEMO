@@ -22,3 +22,13 @@ Open `particles.html` in any modern browser — no build step or dependencies re
 - Hue shifts with speed, so fast-moving particles glow brighter
 - Particles wrap around screen edges
 - Click events spawn an expanding ripple ring and apply an outward impulse
+
+## Testing
+
+Tests use Node's built-in test runner (Node 18+), with no dependencies to install:
+
+```sh
+npm test
+```
+
+They load the script from `particles.html` into a sandbox with a stubbed DOM and canvas, then check the simulation logic and the input handlers.

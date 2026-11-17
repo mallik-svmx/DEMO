@@ -1,0 +1,7 @@
+{
+  "name": "particle-field",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}
