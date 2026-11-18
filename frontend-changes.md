@@ -82,3 +82,8 @@ Added a circular, icon-based light/dark theme toggle fixed to the top-right corn
 - It is a native `<button>`, so it is in the tab order and responds to Enter and Space with no extra code.
 - It has a descriptive, state-aware `aria-label` and `aria-pressed`.
 - It has a visible focus indicator and respects reduced-motion settings.
+
+## Header Styling
+
+- The instruction labels and theme toggle now sit in a fixed `<header id="app-header">` bar (72px) with a solid background, a 2px accent bottom border and a drop shadow, so it reads as separate from the particle canvas.
+- Header colors are theme variables (`--header-bg`, `--header-border`, `--header-shadow`, `--header-fg`) for both dark and light themes.
